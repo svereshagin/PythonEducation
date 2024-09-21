@@ -1,14 +1,12 @@
-import datetime
+import pathlib
+
 from pydantic import BaseModel, Field
-from typing import Dict, Any, ClassVar
+from typing import Dict, Any
 import math
 import json
-from pathlib import Path
 import hashlib
-import logging
-from logging import FileHandler
 import sqlite3
-
+from constant_file_roots import *
 
 first_key_path = Path(__file__).parent.parent.parent.joinpath(
     "src/First_level/first_key.md"
@@ -31,7 +29,7 @@ class TestFileCreateModel(BaseModel):
             "secrets/secret/very_secret"
         )
     )
-    first_key: Dict[str, Any] = Field(
+    First_level: Dict[str, Any] = Field(
         default_factory=lambda: {
             "test1": math.nan,
             "test2": math.nan,
@@ -39,7 +37,7 @@ class TestFileCreateModel(BaseModel):
             "test4": math.nan,
         }
     )
-    second_key: Dict[str, Any] = Field(
+    Second_level: Dict[str, Any] = Field(
         default_factory=lambda: {
             "test6": math.nan,
             "test7": math.nan,
@@ -47,7 +45,7 @@ class TestFileCreateModel(BaseModel):
             "test9": math.nan,
         }
     )
-    third_key: Dict[str, Any] = Field(
+    Third_level: Dict[str, Any] = Field(
         default_factory=lambda: {
             "test11": math.nan,
             "test12": math.nan,
@@ -55,7 +53,7 @@ class TestFileCreateModel(BaseModel):
             "test14": math.nan,
         }
     )
-    fourth_key: Dict[str, Any] = Field(
+    Fourth_level: Dict[str, Any] = Field(
         default_factory=lambda: {
             "test16": math.nan,
             "test17": math.nan,
@@ -71,14 +69,12 @@ class TestFileCreateModel(BaseModel):
         with open(self.path.joinpath("secret_key.json"), "w") as file:
             json.dump(data, fp=file, indent=4)
 
-    def generate_hash_value(self, module: str, exp: int = 10):
+    def generate_hash_value(self, module: str, exp = 10):
         if self.check_all_module_tests(module):
             hash_object = hashlib.sha256((module + str(exp)).encode("utf-8"))
             # Преобразуем хеш в строку
             unique_hash = hash_object.hexdigest()
-            print(f"Generated hash: {unique_hash}")  # добавить игровой формат
-            with open(first_key_path, mode="w") as f:
-                f.write(unique_hash)
+
 
     def check_all_module_tests(self, module: str):
         """Если все тесты проходят, возвращаем модуль, иначе возвращаем None"""
@@ -116,137 +112,47 @@ class TestFileCreateModel(BaseModel):
 
 class SQL_LOGGER_shema:
     def __init__(self, ) -> None:
-        self.db_path = Path(__file__).parent.parent.parent.joinpath(
-    "Info_Students/stats.sql"
-)
-        self._create_table()
+        PreCreatingProjectFiles()
+        self.create_main_table()
 
-    def _create_table(self):
-        """Создание таблицы, если её ещё нет."""
-        with sqlite3.connect(self.db_path) as conn:
+    def create_main_table(self):
+        query = ("""CREATE TABLE IF NOT EXISTS users (
+                attempt INTEGER PRIMARY KEY,
+                quest_num INTEGER,
+                quest_result BOOL,
+                file_text VARCHAR
+        ) """)
+        with sqlite3.connect(sql_database_file) as conn:
             c = conn.cursor()
-
-            # Создание таблиц для квестов
-            for quest in ['quest1', 'quest2', 'quest3', 'quest4']:
-                query = f"""
-                    CREATE TABLE IF NOT EXISTS {quest} (
-                        attempt_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        first_quest_start_time TIMESTAMP,
-                        first_quest_final_time TIMESTAMP,
-                        result REAL,
-                        description VARCHAR
-                    )
-                    """
-                c.execute(query)
-            query = """ CREATE TABLE IF NOT EXISTS users (name VARCHAR(255) UNIQUE) """
-            # Таблица пользователей
             c.execute(query)
-
-            # Добавляем пользователя из файла
-            name = self.get_name_out_of_file()
-            if name:
-                self.add_user(name)
-
             conn.commit()
 
-    def add_user(self, name: str) -> int:
-        try:
-            query = "SELECT name FROM users WHERE name = ?"
-            with sqlite3.connect(self.db_path) as conn:
-                c = conn.cursor()
-                c.execute(query, (name,))
-
-                # Проверяем, если пользователь существует
-                user = c.fetchone()
-                if user is None:
-                    # Если пользователь не найден, добавляем его
-                    c.execute("INSERT INTO users (name) VALUES (?)", (name,))
-                    conn.commit()
-                    return c.lastrowid  # Возвращаем id нового пользователя
-                else:
-                    print(f"Пользователь с именем '{name}' уже существует.")
-                    return -1  # Возвращаем -1, если пользователь существует
-        except sqlite3.Error as e:
-            print(f"Ошибка: {e}")
-            return -1
-
-    def get_name_out_of_file(self):
-        with open(Path(__file__).parent.parent.parent.joinpath("Name"), mode="r", encoding="utf-8") as file:
-            for line in file:
-                name = line.strip()
-                if name:  # Условие проверяет, что строка не пустая
-                    return name
-            return None  # Если не найдено подходящего имени
-
-    def insert_quest_data(self, quest: str, filename: Path, result: float, time_mod=None, time: datetime = None):
-        """
-        Вставка данных в таблицы квестов
-        :param result:
-        :param filename:
-        :param time:
-        :param time_mod:
-        :param quest: Имя квеста (quest1, quest2 и т.д.)
-        :param data: Словарь с данными (ключи: start_time, end_time, result)
-        """
-        query = f"""
-                INSERT INTO {quest} (
-                    first_quest_start_time,
-                    result, 
-                    description
-                ) VALUES (?, ?, ?)
-            """
-        query2 = f"""
-                INSERT INTO {quest} (
-                    first_quest_final_time,
-                    result, 
-                    description
-                ) VALUES (?, ?, ?)
-            """
-
-        with open(Path(__file__).parent.parent.parent.joinpath(filename), mode='r') as f:
-            file_data = f.readlines()
-            file_data_str = ''.join(file_data)
-
-        # Вставляем данные в таблицу
-        with sqlite3.connect(self.db_path) as conn:
+    def insert_data(self, quest_num: int, quest_result: int, file_text: str) -> None:
+        query = """INSERT INTO users (quest_num, quest_result, file_text) VALUES (?, ?, ?)"""
+        with sqlite3.connect(sql_database_file) as conn:
             c = conn.cursor()
-            if time_mod == 'first_quest_start_time':
-                c.execute(query, (time, result, file_data_str))
-            if time_mod == 'first_quest_final_time':
-                c.execute(query2, (time, result, file_data_str))
+            c.execute(query, (quest_num, quest_result, file_text))
             conn.commit()
 
 
+class PreCreatingProjectFiles:
+    sql_database_path.mkdir(parents=True, exist_ok=True, mode=0o755)
+    sql_database_file.touch(mode=0o755, exist_ok=True)
+
+    @staticmethod
+    def _make_key(module_num: int):
+        file = 'main_' + str(module_num)
+        file_with_key = {
+            1: ['first_key', 'First_level'],
+            2: ['second_key', 'Second_level'],
+            3: ['third_key', 'Third_level'],
+            4: ['fourth_key', 'Fourth_key']
+        }
+        file = project_files_for_test[file].parent.joinpath(f"{file_with_key[module_num[0]]}_key.md")
+        with open(file, 'w') as f:
+            hash = TestFileCreateModel().generate_hash_value(file_with_key[module_num][1])
+            f.write(str(hash))
 
 
+pathlib.Path(__file__).joinpath().mkdir()
 
-class LoggerModel():
-
-    # сделать метод для вывода в тг затем
-
-    # main logger files
-    standart_path: ClassVar[Path] = Path(__file__).parent.parent.parent.joinpath(
-        "Info_Students/"
-    )
-    standart_path.mkdir(parents=True, exist_ok=True, mode=0o755)
-    standart_path.joinpath("logger_standard.log").touch(exist_ok=True, mode=0o755)
-
-    # files for user tries
-
-    main_file_1: ClassVar[Path] = Path(__file__).parent.parent.parent.joinpath(
-        "src/First_level/main"
-    )
-    main_file_2: ClassVar[Path] = Path(__file__).parent.parent.parent.joinpath(
-        "src/Second_level/main"
-    )
-    main_file_3: ClassVar[Path] = Path(__file__).parent.parent.parent.joinpath(
-        "src/Third_level/main"
-    )
-    main_file_4: ClassVar[Path] = Path(__file__).parent.parent.parent.joinpath(
-        "src/Fourth_level/main"
-    )
-
-    # got data from user attempts
-    stats: ClassVar[Path] = standart_path.joinpath("stats.sql")
-    stats.touch(exist_ok=True, mode=0o755)
-    # data = SQL_LOGGER_shema(stats)

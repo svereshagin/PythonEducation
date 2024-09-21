@@ -37,7 +37,6 @@ class TestFileCreateModel(BaseModel):
             "test2": math.nan,
             "test3": math.nan,
             "test4": math.nan,
-            "test5": math.nan,
         }
     )
     second_key: Dict[str, Any] = Field(
@@ -46,7 +45,6 @@ class TestFileCreateModel(BaseModel):
             "test7": math.nan,
             "test8": math.nan,
             "test9": math.nan,
-            "test10": math.nan,
         }
     )
     third_key: Dict[str, Any] = Field(
@@ -55,7 +53,6 @@ class TestFileCreateModel(BaseModel):
             "test12": math.nan,
             "test13": math.nan,
             "test14": math.nan,
-            "test15": math.nan,
         }
     )
     fourth_key: Dict[str, Any] = Field(
@@ -64,7 +61,6 @@ class TestFileCreateModel(BaseModel):
             "test17": math.nan,
             "test18": math.nan,
             "test19": math.nan,
-            "test20": math.nan,
         }
     )
     #прописать функцию проверки конкретного теста из выборки
@@ -118,7 +114,6 @@ class TestFileCreateModel(BaseModel):
             json.dump(model_dict, file, indent=4)
 
 
-
 class SQL_LOGGER_shema:
     def __init__(self, ) -> None:
         self.db_path = Path(__file__).parent.parent.parent.joinpath(
@@ -135,15 +130,15 @@ class SQL_LOGGER_shema:
             for quest in ['quest1', 'quest2', 'quest3', 'quest4']:
                 query = f"""
                     CREATE TABLE IF NOT EXISTS {quest} (
-                        attempt_id INTEGER SERIAL PRIMARY KEY,
+                        attempt_id INTEGER PRIMARY KEY AUTOINCREMENT,
                         first_quest_start_time TIMESTAMP,
                         first_quest_final_time TIMESTAMP,
-                        first_result REAL,
+                        result REAL,
                         description VARCHAR
                     )
                     """
                 c.execute(query)
-            query = """ CREATE TABLE IF NOT EXISTS users (nname VARCHAR(255) UNIQUE) """
+            query = """ CREATE TABLE IF NOT EXISTS users (name VARCHAR(255) UNIQUE) """
             # Таблица пользователей
             c.execute(query)
 
@@ -183,23 +178,31 @@ class SQL_LOGGER_shema:
                     return name
             return None  # Если не найдено подходящего имени
 
-    def insert_quest_data(self, quest: str, data: dict, filename: str):
+    def insert_quest_data(self, quest: str, filename: Path, result: float, time_mod=None, time: datetime = None):
         """
         Вставка данных в таблицы квестов
+        :param result:
+        :param filename:
+        :param time:
+        :param time_mod:
         :param quest: Имя квеста (quest1, quest2 и т.д.)
         :param data: Словарь с данными (ключи: start_time, end_time, result)
         """
         query = f"""
-            INSERT INTO {quest} (
-                first_quest_start_time,  
-                first_result, 
-                description
-            ) VALUES (?, ?, ?)
-        """
-        # Получаем данные из словаря
-        start_time = data.get('start_time')
-        end_time = data.get('end_time')
-        result = data.get('result')
+                INSERT INTO {quest} (
+                    first_quest_start_time,
+                    result, 
+                    description
+                ) VALUES (?, ?, ?)
+            """
+        query2 = f"""
+                INSERT INTO {quest} (
+                    first_quest_final_time,
+                    result, 
+                    description
+                ) VALUES (?, ?, ?)
+            """
+
         with open(Path(__file__).parent.parent.parent.joinpath(filename), mode='r') as f:
             file_data = f.readlines()
             file_data_str = ''.join(file_data)
@@ -207,7 +210,10 @@ class SQL_LOGGER_shema:
         # Вставляем данные в таблицу
         with sqlite3.connect(self.db_path) as conn:
             c = conn.cursor()
-            c.execute(query, (start_time, result, file_data_str))
+            if time_mod == 'first_quest_start_time':
+                c.execute(query, (time, result, file_data_str))
+            if time_mod == 'first_quest_final_time':
+                c.execute(query2, (time, result, file_data_str))
             conn.commit()
 
 
